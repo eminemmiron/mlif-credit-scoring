@@ -1,0 +1,5 @@
+{
+  "model": "catboost",
+  "roc_auc": 0.7533,
+  "gini": 0.50661
+}

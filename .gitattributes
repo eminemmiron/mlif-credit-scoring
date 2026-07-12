@@ -1,0 +1,10 @@
+# Нормализуем переводы строк: в репозитории и при выгрузке - всегда LF.
+# Без этого Windows подставит CRLF, и шелл-скрипты (docs/render_diagram.sh),
+# Dockerfile'ы и python сломаются при запуске в Linux-контейнерах.
+* text=auto eol=lf
+
+# Бинарные файлы не трогать
+*.png binary
+*.jar binary
+*.pq binary
+*.parquet binary

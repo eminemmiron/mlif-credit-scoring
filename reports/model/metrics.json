@@ -1,0 +1,33 @@
+{
+  "model": "lightgbm",
+  "roc_auc": 0.75749,
+  "gini": 0.51498,
+  "pr_auc": 0.11297,
+  "ks": 0.38079,
+  "ks_threshold": 0.03468,
+  "valid_rows": 598991,
+  "valid_pos": 21004,
+  "base_rate": 0.03507,
+  "top10_features": [
+    "enc_paym_2_mean",
+    "is_zero_loans530_mean",
+    "enc_loans_credit_type_mean",
+    "is_zero_util_mean",
+    "enc_paym_1_mean",
+    "is_zero_loans3060_mean",
+    "pre_util_last",
+    "enc_paym_3_mean",
+    "is_zero_loans5_mean",
+    "pre_util_mean"
+  ],
+  "baseline": {
+    "roc_auc": 0.72013,
+    "gini": 0.44026,
+    "pr_auc": 0.08523
+  },
+  "catboost": {
+    "roc_auc": 0.7533,
+    "gini": 0.50661,
+    "pr_auc": 0.11037
+  }
+}

@@ -1,0 +1,78 @@
+@startuml architecture
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam ArrowColor #5A7FA6
+skinparam ArrowFontColor #5A6672
+skinparam ArrowFontSize 10
+skinparam rectangle {
+  BorderColor #4C78A8
+  FontColor #1F2D3D
+}
+
+title Credit Scoring (PD) — архитектура пайплайна
+
+' ===== хранилище =====
+rectangle "Источники\nlocal mount\ntrain_data/, test_data/ (parquet)\ntrain_target.csv, test_target.csv\n26.2 млн строк · 3.5 млн клиентов" as SRC #F2F5F8
+rectangle "HDFS  /data/raw\nсырьё в parquet" as HRAW #E3EAF2
+rectangle "HDFS  /data/features\nвитрина клиентов 3 000 000 × 183" as HFEAT #E3EAF2
+
+' ===== этапы Spark =====
+rectangle "ingest_to_hdfs.py\nсырьё → HDFS" as E1 #DCE9F5
+rectangle "eda_spark.py\nSpark SQL: баланс, длина истории,\nсрезы по классам" as E2 #DCE9F5
+rectangle "features_spark.py\nагрегация rn → id (Spark SQL)\nmean/max/last + оконные фичи" as E3 #DCE9F5
+rectangle "baseline_mllib.py\nLogReg (Spark MLlib)\nROC-AUC 0.720 · Gini 0.440" as E4A #DCE9F5
+
+' ===== этапы бустинга =====
+rectangle "train.py\nLightGBM (основная)\nROC-AUC 0.757 · Gini 0.515" as E4B #FBE0D6
+rectangle "train_catboost.py\nCatBoost (сравнение)\nROC-AUC 0.753" as E4C #FBE0D6
+rectangle "evaluate.py\nROC · PR · KS · калибровка\nважность · сравнение моделей" as E5 #FBE0D6
+rectangle "predict.py\nскоринг 500 тыс. клиентов" as E6 #FBE0D6
+rectangle "validate_submission.py\nворота качества submission" as E7 #FBE0D6
+
+' ===== артефакты =====
+rectangle "reports/\nграфики EDA и модели, metrics.json" as ROUT #F2F5F8
+rectangle "models/\nlgbm.txt · catboost.cbm" as MOUT #F2F5F8
+rectangle "submission.csv\nid, score" as SOUT #F2F5F8
+
+' ===== оркестрация =====
+rectangle "Airflow DAG  credit_scoring\ningest → eda → features → baseline → train →\ntrain_catboost → evaluate → predict → validate\nзапуск этапов через docker exec" as AF #FFF4E0
+
+' ===== линейный поток =====
+SRC  --> E1
+E1   --> HRAW
+HRAW --> E2
+E2   --> E3
+E3   --> HFEAT
+HFEAT --> E4A
+E4A  --> E4B
+E4B  --> E4C
+E4C  --> E5
+E5   --> E6
+E6   --> E7
+E6   --> SOUT
+
+' ===== боковые связи =====
+HFEAT ..> E4B : локальная копия parquet
+E4B  --> MOUT
+E4C  --> MOUT
+MOUT ..> E6 : модель
+E2   ..> ROUT
+E5   ..> ROUT
+
+AF ..> E1  : spark-submit
+AF ..> E4B : python3
+
+legend bottom
+  |<#DCE9F5>   | Spark standalone (master + worker) |
+  |<#FBE0D6>   | Trainer — single-node бустинг |
+  |<#E3EAF2>   | HDFS (namenode + datanode) |
+  |<#FFF4E0>   | Airflow |
+endlegend
+
+@enduml

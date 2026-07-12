@@ -1,0 +1,21 @@
+# Spark (standalone) + Python-библиотеки для ETL и обучения бустинга.
+# База - официальный образ Apache Spark с Python.
+FROM apache/spark:3.5.1
+
+USER root
+
+# Python-зависимости: агрегация в pandas, обучение бустинга, метрики, графики.
+# Внутри сборки прокси может мешать pip - при необходимости пробрасываем NO_PROXY.
+ENV NO_PROXY="*"
+RUN set -eux; \
+    pip install --no-cache-dir \
+        "numpy<2" \
+        pandas \
+        pyarrow \
+        scikit-learn \
+        catboost \
+        lightgbm \
+        matplotlib
+
+WORKDIR /opt/app
+ENV PYTHONPATH=/opt/app

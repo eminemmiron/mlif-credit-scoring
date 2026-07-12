@@ -1,0 +1,173 @@
+name: mlif-scoring
+
+# Профили:
+#   (по умолчанию)  -> namenode + datanode + spark-master + spark-worker   
+#   --profile airflow -> + postgres + airflow (web/scheduler)              
+#
+# Проектный корень (F:\github\credit-scoring) монтируется в /opt/app во все контейнеры.
+
+x-app-volumes: &app-volumes
+  - ../:/opt/app
+
+services:
+  # HDFS
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    env_file: ./hadoop.env
+    environment:
+      - CLUSTER_NAME=mlif
+    ports:
+      - "9870:9870"   # WebUI HDFS
+      - "9000:9000"   # RPC
+    volumes:
+      - namenode:/hadoop/dfs/name
+    mem_limit: 1200m
+    restart: unless-stopped
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    hostname: datanode
+    env_file: ./hadoop.env
+    environment:
+      - SERVICE_PRECONDITION=namenode:9870
+    volumes:
+      - datanode:/hadoop/dfs/data
+    mem_limit: 1600m
+    depends_on:
+      - namenode
+    restart: unless-stopped
+
+  # Spark (standalone)
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    image: mlif/spark:latest
+    container_name: spark-master
+    hostname: spark-master
+    entrypoint: ["/opt/spark/bin/spark-class"]
+    command: ["org.apache.spark.deploy.master.Master", "--host", "spark-master"]
+    ports:
+      - "8080:8080"   # WebUI Spark master
+      - "7077:7077"   # submit
+      - "4040:4040"   # WebUI приложения
+    volumes: *app-volumes
+    mem_limit: 1200m
+    depends_on:
+      - namenode
+    restart: unless-stopped
+
+  spark-worker:
+    image: mlif/spark:latest
+    container_name: spark-worker
+    hostname: spark-worker
+    entrypoint: ["/opt/spark/bin/spark-class"]
+    command:
+      - "org.apache.spark.deploy.worker.Worker"
+      - "spark://spark-master:7077"
+      - "--cores"
+      - "4"
+      - "--memory"
+      - "3g"
+    ports:
+      - "8081:8081"   # WebUI воркера
+    volumes: *app-volumes
+    mem_limit: 4500m
+    depends_on:
+      - spark-master
+    restart: unless-stopped
+
+  # Trainer (single-node бустинг, профиль ml)
+  trainer:
+    image: mlif/spark:latest
+    container_name: trainer
+    profiles: ["ml"]
+    entrypoint: ["sleep", "infinity"]
+    working_dir: /opt/app
+    environment:
+      - PYTHONPATH=/opt/app/src
+    volumes: *app-volumes
+    mem_limit: 7g
+    restart: unless-stopped
+
+  # Airflow (профиль airflow)
+  airflow-db:
+    image: postgres:15
+    container_name: airflow-db
+    profiles: ["airflow"]
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db:/var/lib/postgresql/data
+    mem_limit: 700m
+    restart: unless-stopped
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    image: mlif/airflow:latest
+    container_name: airflow-init
+    profiles: ["airflow"]
+    depends_on:
+      - airflow-db
+    environment: &airflow-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW_CONN_SPARK_DEFAULT: "spark://spark-master:7077"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+    user: "50000:0"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create --username admin --password admin \
+          --firstname a --lastname a --role Admin --email admin@example.com || true
+    volumes: &airflow-volumes
+      - ../dags:/opt/airflow/dags
+      - ../src:/opt/app/src
+      - ../data:/opt/app/data
+      - ../reports:/opt/app/reports
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  airflow-webserver:
+    image: mlif/airflow:latest
+    container_name: airflow-webserver
+    profiles: ["airflow"]
+    depends_on:
+      - airflow-init
+    environment: *airflow-env
+    user: "50000:0"
+    command: webserver
+    ports:
+      - "8090:8080"   # WebUI Airflow (8080 занят Spark)
+    volumes: *airflow-volumes
+    mem_limit: 1600m
+    restart: unless-stopped
+
+  airflow-scheduler:
+    image: mlif/airflow:latest
+    container_name: airflow-scheduler
+    profiles: ["airflow"]
+    depends_on:
+      - airflow-init
+    environment: *airflow-env
+    user: "50000:0"
+    command: scheduler
+    volumes: *airflow-volumes
+    mem_limit: 1800m
+    restart: unless-stopped
+
+volumes:
+  namenode:
+  datanode:
+  airflow-db:

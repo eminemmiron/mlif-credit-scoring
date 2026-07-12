@@ -1,0 +1,30 @@
+{
+  "rows": 500000,
+  "expected_rows": 500000,
+  "duplicates": 0,
+  "missing_ids": 0,
+  "extra_ids": 0,
+  "nan": 0,
+  "out_of_range": 0,
+  "unique_ratio": 0.9938,
+  "score_min": 0.00095,
+  "score_mean": 0.03336,
+  "score_max": 0.55085,
+  "valid_score_mean": 0.03531,
+  "mean_drift": 0.0552,
+  "percentiles": {
+    "valid": [
+      0.02322,
+      0.07849,
+      0.18309
+    ],
+    "test": [
+      0.02208,
+      0.07355,
+      0.17284
+    ]
+  },
+  "errors": [],
+  "warnings": [],
+  "passed": true
+}

@@ -1,0 +1,37 @@
+# Исходные данные (~513 МБ, кладутся вручную)
+train_data/
+test_data/
+*.pq
+*.xlsx
+train_target.csv
+test_target.csv
+sample_submission.csv
+
+# Тяжёлые артефакты: пересоздаются прогоном пайплайна
+# локальная копия витрины + valid-предсказания
+data/
+# обученная модель lgbm.txt (~10 МБ)
+models/
+# предсказания по test (~14 МБ)
+submission.csv
+*.parquet
+
+# Графики и метрики в reports/ НЕ игнорируются намеренно:
+# это витрина проекта (~600 КБ), на них ссылается reports/ОТЧЁТ.md.
+
+# Служебные логи обучения CatBoost
+catboost_info/
+
+# Инструменты (качается скриптом render_diagram.sh)
+docs/plantuml.jar
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

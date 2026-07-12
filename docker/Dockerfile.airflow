@@ -1,0 +1,7 @@
+# Airflow + docker SDK: DAG запускает этапы через exec_run в уже поднятых
+# контейнерах spark-master (spark-submit) и trainer (python).
+FROM apache/airflow:2.9.3-python3.11
+
+USER airflow
+ENV NO_PROXY="*"
+RUN pip install --no-cache-dir "docker==7.1.0"
